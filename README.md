@@ -13,8 +13,8 @@ Using Mule Salesforce connector performs CRUD operations and Topic Subscription
 
 Mule components
 ---------
-1.Dataweave
-2.Salesforce Create/Update Single/Delete
+1. Dataweave
+2. Salesforce Create/Update Single/Delete
 3.Salesforce Subscribe Topic
 3.Batch Processing
 4.Database
