@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:smtp="http://www.mulesoft.org/schema/mule/smtp"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:sfdc="http://www.mulesoft.org/schema/mule/sfdc"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/smtp http://www.mulesoft.org/schema/mule/smtp/current/mule-smtp.xsd http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/sfdc http://www.mulesoft.org/schema/mule/sfdc/current/mule-sfdc.xsd
+http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-current.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+
+ 
+	 
+	 <context:property-placeholder location="classpath:General.properties,classpath:ESBData.properties,classpath:Email.properties,classpath:SF.properties"/>
+	 <http:listener-config name="HTTP_Listener_Configuration" host="${SF.http.host}" port="${SF.http.port}" doc:name="HTTP Listener Configuration"/>
+	 <sfdc:config name="SalesforceBA" username="${SF.username}" password="${SF.password}" securityToken="${SF.securityToken}" doc:name="Salesforce: Basic Authentication"/>
+
+    <smtp:connector name="SMTP" contentType="text/plain" validateConnections="true" doc:name="SMTP"/>
+    <db:mysql-config name="ESBDBDatabase" host="${DB.host}" port="${DB.port}" user="${DB.user}" password="${DB.password}" database="${DB.database}" doc:name="MySQL Configuration"/>
+     
+
+</mule>

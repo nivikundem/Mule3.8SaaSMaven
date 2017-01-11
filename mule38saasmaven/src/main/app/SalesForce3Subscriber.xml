@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:vm="http://www.mulesoft.org/schema/mule/vm"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:sfdc="http://www.mulesoft.org/schema/mule/sfdc"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd http://www.mulesoft.org/schema/mule/sfdc http://www.mulesoft.org/schema/mule/sfdc/current/mule-sfdc.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+
+
+	<!-- 
+	<flow name="accountUpdatesPublisher">
+	        <http:listener config-ref="HTTP_Listener_Configuration" path="/publish" doc:name="HTTP"/>
+	   <sfdc:publish-topic config-ref="SalesforceBA" query="SELECT Id, Name FROM Account" doc:name="Salesforce" topicName="AccountUpdates"/>
+	   <logger level="INFO" message="****** Nivi1" doc:name="Logger"/>
+	</flow> -->
+	
+	
+	<flow name="accountUpdatesSubscription">
+	   
+	    <sfdc:subscribe-topic topic="Account6" config-ref="SalesforceBA" doc:name="Salesforce (Streaming)"/>  <!-- INBOUND ENDPOINT -->
+	    <!--  REST OF YOUR FLOW -->
+	    <logger level="INFO" message="****** Received an event for Salesforce Object ID #[map-payload:Id]" doc:name="Logger"/>
+	    <logger level="INFO" message="****** Received an event for Salesforce Object ID #[map-payload:Name]" doc:name="Logger"/>
+	
+	
+		  <catch-exception-strategy doc:name="Salesforce Catch Exception Strategy">
+			  <message-properties-transformer scope="session" doc:name="Message Properties">
+			  <add-message-property key="errorprocess" value="#['Salesforce']"/>
+			  <add-message-property key="errormessage" value="#['Failed to subscribe post a change']"/>
+			  <add-message-property key="erroradditionaltext" value="#['Failed to subscribe post a change in Salesforce']"/>
+			  </message-properties-transformer>
+			  <vm:outbound-endpoint exchange-pattern="request-response" path="Salesforce.queue.VMError" doc:name="VMError"/>		  
+			  </catch-exception-strategy>   
+	
+	</flow> 
+
+
+</mule>

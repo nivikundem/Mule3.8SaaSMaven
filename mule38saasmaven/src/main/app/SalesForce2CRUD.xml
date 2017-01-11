@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:vm="http://www.mulesoft.org/schema/mule/vm"
+	xmlns:json="http://www.mulesoft.org/schema/mule/json"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:sfdc="http://www.mulesoft.org/schema/mule/sfdc" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/sfdc http://www.mulesoft.org/schema/mule/sfdc/current/mule-sfdc.xsd">
+
+
+	
+		<flow name="CreateContact">
+		
+			 <http:inbound-endpoint exchange-pattern="request-response" host="localhost" port="1001" path="SFDC_CRUD" doc:name="HTTP_Inbound"/>
+			 <component class="com.sf.crud.CreateContactRequest" doc:name="CreateContactRequest"/> 
+			 <logger message="Salesforce Request----&gt; #[payload]" level="INFO" doc:name="LogSalesforceRequest"/> 
+			 <sfdc:create config-ref="SalesforceBA" doc:name="CreateSalesforceContact" type="#[payload.type]">
+			 <sfdc:objects ref="#[payload.objects]"/> 
+			 </sfdc:create> 
+			 <logger message="SFDC output:: ------ #[payload]" level="INFO" doc:name="LogSalesforceResponse"/> 		 
+			 
+		     <component class="com.sf.crud.CreateContactResponseProcessor" doc:name="CreateContactSFResponseProcessor"/> 
+			 <message-properties-transformer overwrite="true" scope="session" doc:name="StoreContactId"> <add-message-property key="sObjectId" value="#[payload]"/>
+			 </message-properties-transformer>			 
+			 <flow-ref name="QueryContact" doc:name="GoToReadContactFlow"/> 
+			 
+			 
+			  <catch-exception-strategy doc:name="Salesforce Catch Exception Strategy">
+			  <message-properties-transformer scope="session" doc:name="Message Properties">
+			  <add-message-property key="errorprocess" value="#['Salesforce']"/>
+			  <add-message-property key="errormessage" value="#['Failed to create a contact']"/>
+			  <add-message-property key="erroradditionaltext" value="#['Failed to create a contact in Salesforce']"/>
+			  </message-properties-transformer>
+			  <vm:outbound-endpoint exchange-pattern="request-response" path="Salesforce.queue.VMError" doc:name="VMError"/>		  
+			  </catch-exception-strategy>    
+		
+		 </flow> 
+
+
+	 <flow name="QueryContact" doc:name="QueryContact"> 
+		 <logger level="INFO" doc:name="LogSalesforceReadContactRequest"/> 
+		 <sfdc:query config-ref="SalesforceBA" query="SELECT Id,Name,BillingStreet, BillingCity,BillingState,BillingPostalCode,BillingCountry FROM Account WHERE Id = '#[sessionVars.sObjectId]'" doc:name="ReadSalesforceContact"/>
+		 <logger level="INFO" doc:name="LogSalesforceReadContactResponse" message="Created contact details : #[payload]"/>
+		 <flow-ref name="UpdateContact" doc:name="GoToUpdateContactFlow"/>
+	
+	          <catch-exception-strategy doc:name="Salesforce Catch Exception Strategy">
+			  <message-properties-transformer scope="session" doc:name="Message Properties">
+			  <add-message-property key="errorprocess" value="#['Salesforce']"/>
+			  <add-message-property key="errormessage" value="#['Failed to update a contact']"/>
+			  <add-message-property key="erroradditionaltext" value="#['Failed to update a contact in Salesforce']"/>
+			  </message-properties-transformer>
+			  <vm:outbound-endpoint exchange-pattern="request-response" path="Salesforce.queue.VMError" doc:name="VMError"/>		  
+			  </catch-exception-strategy>    
+	 </flow>
+ 
+
+
+	 <flow name="UpdateContact" doc:name="UpdateContact">
+		 <component class="com.sf.crud.UpdateContactRequest" doc:name="UpdateContactRequest"/> 
+		 <logger message="Update Request----&gt; #[payload]" level="INFO" doc:name="LogUpdateContactSalesforceRequest"/>
+		 <sfdc:update-single config-ref="SalesforceBA" type="#[payload.type]" doc:name="UpdateSalesforceContact">
+		 <sfdc:object ref="#[payload.object]"/> 
+		 </sfdc:update-single>
+		 <logger message="Update Output----&gt; #[payload]" level="INFO" doc:name="LogContactUpdated"/> 
+		  <flow-ref name="ReadContactAgain" doc:name="GoToReadContactFlow"/>  
+		  
+		    <catch-exception-strategy doc:name="Salesforce Catch Exception Strategy">
+			  <message-properties-transformer scope="session" doc:name="Message Properties">
+			  <add-message-property key="errorprocess" value="#['Salesforce']"/>
+			  <add-message-property key="errormessage" value="#['Failed to update a contact']"/>
+			  <add-message-property key="erroradditionaltext" value="#['Failed to update a contact in Salesforce']"/>
+			  </message-properties-transformer>
+			  <vm:outbound-endpoint exchange-pattern="request-response" path="Salesforce.queue.VMError" doc:name="VMError"/>		  
+			  </catch-exception-strategy>
+	 </flow> 
+
+
+
+
+	<flow name="ReadContactAgain" doc:name="ReadContactAgain">
+		 <logger level="INFO" doc:name="LogSalesforceReadContactRequest"/> 
+		 <sfdc:query config-ref="SalesforceBA" query="SELECT Id,Name,BillingStreet, BillingCity,BillingState,BillingPostalCode,BillingCountry FROM Account WHERE Id = '#[sessionVars.sObjectId]'" doc:name="ReadSalesforceContact"/> 
+		 <logger level="INFO" doc:name="LogSalesforceReadContactResponse" message="Query Output: #[payload]"/> 
+		   <flow-ref name="DeleteContact" doc:name="GoToDeleteContactFlow"/>  
+		  
+		  	  <catch-exception-strategy doc:name="Salesforce Catch Exception Strategy">
+			  <message-properties-transformer scope="session" doc:name="Message Properties">
+			  <add-message-property key="errorprocess" value="#['Salesforce']"/>
+			  <add-message-property key="errormessage" value="#['Failed to create a account']"/>
+			  <add-message-property key="erroradditionaltext" value="#['Failed to create a account in Salesforce']"/>
+			  </message-properties-transformer>
+			  <vm:outbound-endpoint exchange-pattern="request-response" path="Salesforce.queue.VMError" doc:name="VMError"/>		  
+			  </catch-exception-strategy>   
+		  
+		  
+		  
+	 </flow> 
+ 
+
+	 <flow name="DeleteContact" doc:name="DeleteContact"> 
+		 <sfdc:delete config-ref="SalesforceBA" doc:name="DeleteSalesforceContact">
+		 <sfdc:ids> <sfdc:id>#[sessionVars.sObjectId]</sfdc:id> </sfdc:ids> 
+		 </sfdc:delete> 
+		 <logger level="INFO" doc:name="LogDeleteContactResponse" message="Delete Output-----&gt; #[payload]"/>
+		 <set-payload value="&quot;CRUD Operations executed successfully. Please check the logs for details&quot;" doc:name="Set Payload"/> 
+
+              <catch-exception-strategy doc:name="Salesforce Catch Exception Strategy">
+			  <message-properties-transformer scope="session" doc:name="Message Properties">
+			  <add-message-property key="errorprocess" value="#['Salesforce']"/>
+			  <add-message-property key="errormessage" value="#['Failed to read a contact']"/>
+			  <add-message-property key="erroradditionaltext" value="#['Failed to read a contact in Salesforce']"/>
+			  </message-properties-transformer>
+			  <vm:outbound-endpoint exchange-pattern="request-response" path="Salesforce.queue.VMError" doc:name="VMError"/>		  
+			  </catch-exception-strategy>
+
+	 </flow>
+
+
+
+
+
+    <flow name="getSFDCAccountsFlow">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/sfdc" doc:name="HTTP"/>            
+        <sfdc:query config-ref="SalesforceBA" query="dsql:SELECT AccountNumber,BillingCity,BillingCountry,BillingPostalCode,BillingState,BillingStreet,Name FROM Account  WHERE BillingPostalCode = 'RM166BP'" doc:name="Salesforce"/>
+       
+        <json:object-to-json-transformer doc:name="Object to JSON"/>
+        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+        
+          <catch-exception-strategy doc:name="Salesforce Catch Exception Strategy">
+		  <message-properties-transformer scope="session" doc:name="Message Properties">
+		  <add-message-property key="errorprocess" value="#['Salesforce']"/>
+		  <add-message-property key="errormessage" value="#['Failed to fetch an account']"/>
+		  <add-message-property key="erroradditionaltext" value="#['Failed to fetch a contact an account']"/>
+		  </message-properties-transformer>
+		  <vm:outbound-endpoint exchange-pattern="request-response" path="Salesforce.queue.VMError" doc:name="VMError"/>		  
+		  </catch-exception-strategy>
+    </flow>
+    
+    
+    
+</mule>

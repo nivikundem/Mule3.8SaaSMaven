@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:sfdc="http://www.mulesoft.org/schema/mule/sfdc"
+	xmlns:batch="http://www.mulesoft.org/schema/mule/batch"
+	xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/sfdc http://www.mulesoft.org/schema/mule/sfdc/current/mule-sfdc.xsd
+http://www.mulesoft.org/schema/mule/batch http://www.mulesoft.org/schema/mule/batch/current/mule-batch.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+
+
+
+  <batch:job name="WatermarkBatchProcess">
+        <batch:input>
+            <poll doc:name="Poll">
+                <fixed-frequency-scheduler frequency="30" timeUnit="SECONDS"/>
+                <watermark variable="lastAccountID" default-expression="0" selector="MAX" selector-expression="#[payload.accountID]"/>
+                <db:select config-ref="ESBDBDatabase" doc:name="Database">
+                    <db:parameterized-query><![CDATA[select *
+from accounts
+where postal='RM16' and accountID > #[flowVars.lastAccountID]]]></db:parameterized-query>
+                </db:select>
+            </poll>
+            <dw:transform-message doc:name="Transform Message">
+                <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload map ((payload01 , indexOfPayload01) -> {
+	Id: payload01.accountID as :string,
+	Name: payload01.name,
+	BillingStreet: payload01.street,
+	BillingCity: payload01.city,
+	BillingState: payload01.state,
+	BillingPostalCode: payload01.postal,
+	BillingCountry: payload01.country
+})]]></dw:set-payload>
+            </dw:transform-message>
+        </batch:input>
+        <batch:process-records>
+            <batch:step name="Batch_Step3">
+                <enricher source="#[payload.size() &gt; 0]" target="#[recordVars.exists]" doc:name="Message Enricher">
+                    <sfdc:query config-ref="SalesforceBA" query="dsql:SELECT Name FROM Account WHERE Name = '#[payload.Name]'" doc:name="Salesforce"/>
+                </enricher>
+                <logger message="#['\n\nRecordvar :  '+payload]" level="INFO" doc:name="Logger"/>
+            </batch:step>
+            <batch:step name="Batch_Step2" accept-expression="#[!recordVars.exists]">
+                <logger message="#['\n\nRecordvarcheck2 :  '+payload]" level="INFO" doc:name="Logger"/>
+                <batch:commit size="100" doc:name="Batch Commit">
+                    <sfdc:create config-ref="SalesforceBA" type="Account" doc:name="Salesforce">
+                        <sfdc:objects ref="#[payload]"/>
+                    </sfdc:create>
+                </batch:commit>
+            </batch:step>
+        </batch:process-records>
+        <batch:on-complete>
+            <logger message="#['varprocessed :'+payload.processedRecords+' Failed '+payload.failedRecords]" level="INFO" doc:name="Logger"/>
+        </batch:on-complete>
+    </batch:job>
+
+
+</mule>
