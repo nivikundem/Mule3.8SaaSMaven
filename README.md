@@ -15,16 +15,16 @@ Mule components
 ---------
 1. Dataweave
 2. Salesforce Create/Update Single/Delete
-3.Salesforce Subscribe Topic
-3.Batch Processing
-4.Database
-5.http
-6.Java component
-3.Context property place folders
-4.Message Properties transformer
-5.VM Inbound/Outbound
-6.Object-to-JSON
-7.Exception Strategies
+3. Salesforce Subscribe Topic
+4. Batch Processing
+5. Database
+6. http
+7. Java component
+8. Context property place folders
+9. Message Properties transformer
+10. VM Inbound/Outbound
+11. Object-to-JSON
+12. Exception Strategies
 
 
 
